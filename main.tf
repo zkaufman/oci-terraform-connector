@@ -1,4 +1,4 @@
-// Copyright (c) 2017, 2022, Oracle and/or its affiliates. All rights reserved.
+// Copyright (c) 2017, 2021, Oracle and/or its affiliates. All rights reserved.
 // Licensed under the Mozilla Public License v2.0
 
 variable "tenancy_ocid" {
@@ -13,135 +13,94 @@ variable "fingerprint" {
 variable "private_key" {
 }
 
-variable "ssh_public_key" {
+variable "region" {
 }
 
 variable "compartment_ocid" {
 }
 
-variable "region" {
+variable "ssh_public_key" {
+}
+
+variable "ssh_private_key" {
 }
 
 provider "oci" {
-  region           = var.region
   tenancy_ocid     = var.tenancy_ocid
   user_ocid        = var.user_ocid
   fingerprint      = var.fingerprint
   private_key      = var.private_key
+  region           = var.region
 }
 
-variable "instance_shape" {
-  default = "VM.Standard.A1.Flex" # Or VM.Standard.E2.1.Micro
-}
-
-variable "instance_ocpus" {
+# Defines the number of instances to deploy
+variable "num_instances" {
   default = "1"
 }
 
+# Defines the number of volumes to create and attach to each instance
+# NOTE: Changing this value after applying it could result in re-attaching existing volumes to different instances.
+# This is a result of using 'count' variables to specify the volume and instance IDs for the volume attachment resource.
+variable "num_iscsi_volumes_per_instance" {
+  default = "1"
+}
+
+variable "num_paravirtualized_volumes_per_instance" {
+  default = "2"
+}
+
+variable "instance_shape" {
+  default = "VM.Standard.E3.Flex"
+}
+
+variable "instance_ocpus" {
+  default = 1
+}
+
 variable "instance_shape_config_memory_in_gbs" {
-  default = "6"
+  default = 1
 }
 
-data "oci_identity_availability_domain" "ad" {
-  compartment_id = var.tenancy_ocid
-  ad_number      = 1
-}
+variable "instance_image_ocid" {
+  type = map(string)
 
-/* Network */
-
-resource "oci_core_virtual_network" "test_vcn" {
-  cidr_block     = "10.1.0.0/16"
-  compartment_id = var.compartment_ocid
-  display_name   = "testVCN"
-  dns_label      = "testvcn"
-}
-
-resource "oci_core_subnet" "test_subnet" {
-  cidr_block        = "10.1.20.0/24"
-  display_name      = "testSubnet"
-  dns_label         = "testsubnet"
-  security_list_ids = [oci_core_security_list.test_security_list.id]
-  compartment_id    = var.compartment_ocid
-  vcn_id            = oci_core_virtual_network.test_vcn.id
-  route_table_id    = oci_core_route_table.test_route_table.id
-  dhcp_options_id   = oci_core_virtual_network.test_vcn.default_dhcp_options_id
-}
-
-resource "oci_core_internet_gateway" "test_internet_gateway" {
-  compartment_id = var.compartment_ocid
-  display_name   = "testIG"
-  vcn_id         = oci_core_virtual_network.test_vcn.id
-}
-
-resource "oci_core_route_table" "test_route_table" {
-  compartment_id = var.compartment_ocid
-  vcn_id         = oci_core_virtual_network.test_vcn.id
-  display_name   = "testRouteTable"
-
-  route_rules {
-    destination       = "0.0.0.0/0"
-    destination_type  = "CIDR_BLOCK"
-    network_entity_id = oci_core_internet_gateway.test_internet_gateway.id
+  default = {
+    # See https://docs.us-phoenix-1.oraclecloud.com/images/
+    # Oracle-provided image "Oracle-Linux-7.5-2018.10.16-0"
+    us-phoenix-1   = "ocid1.image.oc1.phx.aaaaaaaaoqj42sokaoh42l76wsyhn3k2beuntrh5maj3gmgmzeyr55zzrwwa"
+    us-ashburn-1   = "ocid1.image.oc1.iad.aaaaaaaageeenzyuxgia726xur4ztaoxbxyjlxogdhreu3ngfj2gji3bayda"
+    eu-frankfurt-1 = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaaitzn6tdyjer7jl34h2ujz74jwy5nkbukbh55ekp6oyzwrtfa4zma"
+    uk-london-1    = "ocid1.image.oc1.uk-london-1.aaaaaaaa32voyikkkzfxyo4xbdmadc2dmvorfxxgdhpnk6dw64fa3l4jh7wa"
   }
 }
 
-resource "oci_core_security_list" "test_security_list" {
-  compartment_id = var.compartment_ocid
-  vcn_id         = oci_core_virtual_network.test_vcn.id
-  display_name   = "testSecurityList"
-
-  egress_security_rules {
-    protocol    = "6"
-    destination = "0.0.0.0/0"
-  }
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-
-    tcp_options {
-      max = "22"
-      min = "22"
-    }
-  }
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-
-    tcp_options {
-      max = "3000"
-      min = "3000"
-    }
-  }
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-
-    tcp_options {
-      max = "3005"
-      min = "3005"
-    }
-  }
-
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-
-    tcp_options {
-      max = "80"
-      min = "80"
-    }
+variable "flex_instance_image_ocid" {
+  type = map(string)
+  default = {
+    us-phoenix-1 = "ocid1.image.oc1.phx.aaaaaaaa6hooptnlbfwr5lwemqjbu3uqidntrlhnt45yihfj222zahe7p3wq"
+    us-ashburn-1 = "ocid1.image.oc1.iad.aaaaaaaa6tp7lhyrcokdtf7vrbmxyp2pctgg4uxvt4jz4vc47qoc2ec4anha"
+    eu-frankfurt-1 = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaadvi77prh3vjijhwe5xbd6kjg3n5ndxjcpod6om6qaiqeu3csof7a"
+    uk-london-1 = "ocid1.image.oc1.uk-london-1.aaaaaaaaw5gvriwzjhzt2tnylrfnpanz5ndztyrv3zpwhlzxdbkqsjfkwxaq"
   }
 }
 
-/* Instances */
+variable "db_size" {
+  default = "50" # size in GBs
+}
 
-resource "oci_core_instance" "free_instance0" {
+variable "tag_namespace_description" {
+  default = "Just a test"
+}
+
+variable "tag_namespace_name" {
+  default = "testexamples-tag-namespace"
+}
+
+resource "oci_core_instance" "test_instance" {
+  count               = var.num_instances
   availability_domain = data.oci_identity_availability_domain.ad.name
   compartment_id      = var.compartment_ocid
-  display_name        = "freeInstance0"
+  display_name        = "TestInstance${count.index}"
   shape               = var.instance_shape
 
   shape_config {
@@ -150,259 +109,229 @@ resource "oci_core_instance" "free_instance0" {
   }
 
   create_vnic_details {
-    subnet_id        = oci_core_subnet.test_subnet.id
-    display_name     = "primaryvnic"
-    assign_public_ip = true
-    hostname_label   = "freeinstance0"
+    subnet_id                 = oci_core_subnet.test_subnet.id
+    display_name              = "Primaryvnic"
+    assign_public_ip          = true
+    assign_private_dns_record = true
+    hostname_label            = "exampleinstance${count.index}"
   }
 
   source_details {
     source_type = "image"
-    source_id   = lookup(data.oci_core_images.test_images.images[0], "id")
+    source_id = var.flex_instance_image_ocid[var.region]
+    # Apply this to set the size of the boot volume that is created for this instance.
+    # Otherwise, the default boot volume size of the image is used.
+    # This should only be specified when source_type is set to "image".
+    #boot_volume_size_in_gbs = "60"
   }
+
+  # Apply the following flag only if you wish to preserve the attached boot volume upon destroying this instance
+  # Setting this and destroying the instance will result in a boot volume that should be managed outside of this config.
+  # When changing this value, make sure to run 'terraform apply' so that it takes effect before the resource is destroyed.
+  #preserve_boot_volume = true
 
   metadata = {
-    ssh_authorized_keys = (var.ssh_public_key != "") ? var.ssh_public_key : tls_private_key.compute_ssh_key.public_key_openssh
+    ssh_authorized_keys = var.ssh_public_key
+    user_data           = base64encode(file("./userdata/bootstrap"))
   }
-}
-
-resource "oci_core_instance" "free_instance1" {
-  availability_domain = data.oci_identity_availability_domain.ad.name
-  compartment_id      = var.compartment_ocid
-  display_name        = "freeInstance1"
-  shape               = var.instance_shape
-
-  shape_config {
-    ocpus = 1
-    memory_in_gbs = 6
+  defined_tags = {
+    "${oci_identity_tag_namespace.tag-namespace1.name}.${oci_identity_tag.tag2.name}" = "awesome-app-server"
   }
-
-  create_vnic_details {
-    subnet_id        = oci_core_subnet.test_subnet.id
-    display_name     = "primaryvnic"
-    assign_public_ip = true
-    hostname_label   = "freeinstance1"
-  }
-
-  source_details {
-    source_type = "image"
-    source_id   = lookup(data.oci_core_images.test_images.images[0], "id")
-  }
-
-  metadata = {
-    ssh_authorized_keys = (var.ssh_public_key != "") ? var.ssh_public_key : tls_private_key.compute_ssh_key.public_key_openssh
-  }
-}
-
-resource "tls_private_key" "compute_ssh_key" {
-  algorithm = "RSA"
-  rsa_bits  = 2048
-}
-
-output "generated_private_key_pem" {
-  value     = (var.ssh_public_key != "") ? var.ssh_public_key : tls_private_key.compute_ssh_key.private_key_pem
-  sensitive = true
-}
-
-/* Load Balancer */
-
-resource "oci_load_balancer_load_balancer" "free_load_balancer" {
-  #Required
-  compartment_id = var.compartment_ocid
-  display_name   = "alwaysFreeLoadBalancer"
-  shape          = "flexible"
-  shape_details {
-    maximum_bandwidth_in_mbps = 10
-    minimum_bandwidth_in_mbps = 10
-  }
-
-  subnet_ids = [
-    oci_core_subnet.test_subnet.id,
-  ]
-}
-
-resource "oci_load_balancer_backend_set" "free_load_balancer_backend_set" {
-  name             = "lbBackendSet1"
-  load_balancer_id = oci_load_balancer_load_balancer.free_load_balancer.id
-  policy           = "ROUND_ROBIN"
-
-  health_checker {
-    port                = "80"
-    protocol            = "HTTP"
-    response_body_regex = ".*"
-    url_path            = "/"
-  }
-
-  session_persistence_configuration {
-    cookie_name      = "lb-session1"
-    disable_fallback = true
-  }
-}
-
-resource "oci_load_balancer_backend" "free_load_balancer_test_backend0" {
-  #Required
-  backendset_name  = oci_load_balancer_backend_set.free_load_balancer_backend_set.name
-  ip_address       = oci_core_instance.free_instance0.public_ip
-  load_balancer_id = oci_load_balancer_load_balancer.free_load_balancer.id
-  port             = "80"
-}
-
-resource "oci_load_balancer_backend" "free_load_balancer_test_backend1" {
-  #Required
-  backendset_name  = oci_load_balancer_backend_set.free_load_balancer_backend_set.name
-  ip_address       = oci_core_instance.free_instance1.public_ip
-  load_balancer_id = oci_load_balancer_load_balancer.free_load_balancer.id
-  port             = "80"
-}
-
-resource "oci_load_balancer_hostname" "test_hostname1" {
-  #Required
-  hostname         = "app.free.com"
-  load_balancer_id = oci_load_balancer_load_balancer.free_load_balancer.id
-  name             = "hostname1"
-}
-
-resource "oci_load_balancer_listener" "load_balancer_listener0" {
-  load_balancer_id         = oci_load_balancer_load_balancer.free_load_balancer.id
-  name                     = "http"
-  default_backend_set_name = oci_load_balancer_backend_set.free_load_balancer_backend_set.name
-  hostname_names           = [oci_load_balancer_hostname.test_hostname1.name]
-  port                     = 80
-  protocol                 = "HTTP"
-  rule_set_names           = [oci_load_balancer_rule_set.test_rule_set.name]
-
-  connection_configuration {
-    idle_timeout_in_seconds = "240"
-  }
-}
-
-resource "oci_load_balancer_rule_set" "test_rule_set" {
-  items {
-    action = "ADD_HTTP_REQUEST_HEADER"
-    header = "example_header_name"
-    value  = "example_header_value"
-  }
-
-  items {
-    action          = "CONTROL_ACCESS_USING_HTTP_METHODS"
-    allowed_methods = ["GET", "POST"]
-    status_code     = "405"
-  }
-
-  load_balancer_id = oci_load_balancer_load_balancer.free_load_balancer.id
-  name             = "test_rule_set_name"
-}
-
-resource "tls_private_key" "example" {
-  algorithm   = "ECDSA"
-  ecdsa_curve = "P384"
-}
-
-resource "tls_self_signed_cert" "example" {
-  key_algorithm   = "ECDSA"
-  private_key_pem = tls_private_key.example.private_key_pem
-
-  subject {
-    organization = "Oracle"
-    country = "US"
-    locality = "Austin"
-    province = "TX"
-  }
-
-  validity_period_hours = 8760 # 1 year
-
-  allowed_uses = [
-    "key_encipherment",
-    "digital_signature",
-    "server_auth",
-    "client_auth",
-    "cert_signing"
-  ]
-
-  is_ca_certificate = true
-}
-
-resource "oci_load_balancer_certificate" "load_balancer_certificate" {
-  load_balancer_id   = oci_load_balancer_load_balancer.free_load_balancer.id
-  ca_certificate     = tls_self_signed_cert.example.cert_pem
-  certificate_name   = "certificate1"
-  private_key        = tls_private_key.example.private_key_pem
-  public_certificate = tls_self_signed_cert.example.cert_pem
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "oci_load_balancer_listener" "load_balancer_listener1" {
-  load_balancer_id         = oci_load_balancer_load_balancer.free_load_balancer.id
-  name                     = "https"
-  default_backend_set_name = oci_load_balancer_backend_set.free_load_balancer_backend_set.name
-  port                     = 443
-  protocol                 = "HTTP"
-
-  ssl_configuration {
-    certificate_name        = oci_load_balancer_certificate.load_balancer_certificate.certificate_name
-    verify_peer_certificate = false
-  }
-}
-
-output "lb_public_ip" {
-  value = [oci_load_balancer_load_balancer.free_load_balancer.ip_address_details]
-}
-
-data "oci_core_vnic_attachments" "app_vnics" {
-  compartment_id      = var.compartment_ocid
-  availability_domain = data.oci_identity_availability_domain.ad.name
-  instance_id         = oci_core_instance.free_instance0.id
-}
-
-data "oci_core_vnic" "app_vnic" {
-  vnic_id = data.oci_core_vnic_attachments.app_vnics.vnic_attachments[0]["vnic_id"]
-}
-
-# See https://docs.oracle.com/iaas/images/
-data "oci_core_images" "test_images" {
-  compartment_id           = var.compartment_ocid
-  operating_system         = "Oracle Linux"
-  operating_system_version = "8"
-  shape                    = var.instance_shape
-  sort_by                  = "TIMECREATED"
-  sort_order               = "DESC"
-}
-
-output "app" {
-  value = "http://${data.oci_core_vnic.app_vnic.public_ip_address}"
-}
-
-data "oci_database_autonomous_databases" "test_autonomous_databases" {
-  #Required
-  compartment_id = var.compartment_ocid
-
-  #Optional
-  db_workload  = "OLTP"
-  is_free_tier = "true"
-}
-
-resource "oci_database_autonomous_database" "test_autonomous_database" {
-  #Required
-  admin_password           = "Testalwaysfree1"
-  compartment_id           = var.compartment_ocid
-  cpu_core_count           = "1"
-  data_storage_size_in_tbs = "1"
-  db_name                  = "testadb5"
-
-  #Optional
-  db_workload  = "OLTP"
-  display_name = "test_autonomous_database"
 
   freeform_tags = {
-    "Department" = "Finance"
+    "freeformkey${count.index}" = "freeformvalue${count.index}"
   }
 
-  is_auto_scaling_enabled = "false"
-  license_model           = "LICENSE_INCLUDED"
-  is_free_tier            = "true"
+  preemptible_instance_config {
+    preemption_action {
+      type = "TERMINATE"
+      preserve_boot_volume = false
+    }
+  }
+
+  timeouts {
+    create = "60m"
+  }
 }
 
+# Define the volumes that are attached to the compute instances.
 
+resource "oci_core_volume" "test_block_volume" {
+  count               = var.num_instances * var.num_iscsi_volumes_per_instance
+  availability_domain = data.oci_identity_availability_domain.ad.name
+  compartment_id      = var.compartment_ocid
+  display_name        = "TestBlock${count.index}"
+  size_in_gbs         = var.db_size
+}
+
+resource "oci_core_volume_attachment" "test_block_attach" {
+  count           = var.num_instances * var.num_iscsi_volumes_per_instance
+  attachment_type = "iscsi"
+  instance_id     = oci_core_instance.test_instance[floor(count.index / var.num_iscsi_volumes_per_instance)].id
+  volume_id       = oci_core_volume.test_block_volume[count.index].id
+  device          = count.index == 0 ? "/dev/oracleoci/oraclevdb" : ""
+
+  # Set this to enable CHAP authentication for an ISCSI volume attachment. The oci_core_volume_attachment resource will
+  # contain the CHAP authentication details via the "chap_secret" and "chap_username" attributes.
+  use_chap = true
+  # Set this to attach the volume as read-only.
+  #is_read_only = true
+}
+
+resource "oci_core_volume" "test_block_volume_paravirtualized" {
+  count               = var.num_instances * var.num_paravirtualized_volumes_per_instance
+  availability_domain = data.oci_identity_availability_domain.ad.name
+  compartment_id      = var.compartment_ocid
+  display_name        = "TestBlockParavirtualized${count.index}"
+  size_in_gbs         = var.db_size
+}
+
+resource "oci_core_volume_attachment" "test_block_volume_attach_paravirtualized" {
+  count           = var.num_instances * var.num_paravirtualized_volumes_per_instance
+  attachment_type = "paravirtualized"
+  instance_id     = oci_core_instance.test_instance[floor(count.index / var.num_paravirtualized_volumes_per_instance)].id
+  volume_id       = oci_core_volume.test_block_volume_paravirtualized[count.index].id
+  # Set this to attach the volume as read-only.
+  #is_read_only = true
+}
+
+resource "oci_core_volume_backup_policy_assignment" "policy" {
+  count     = var.num_instances
+  asset_id  = oci_core_instance.test_instance[count.index].boot_volume_id
+  policy_id = data.oci_core_volume_backup_policies.test_predefined_volume_backup_policies.volume_backup_policies[0].id
+}
+
+resource "null_resource" "remote-exec" {
+  depends_on = [
+    oci_core_instance.test_instance,
+    oci_core_volume_attachment.test_block_attach,
+  ]
+  count = var.num_instances * var.num_iscsi_volumes_per_instance
+
+  provisioner "remote-exec" {
+    connection {
+      agent       = false
+      timeout     = "30m"
+      host        = oci_core_instance.test_instance[count.index % var.num_instances].public_ip
+      user        = "opc"
+      private_key = var.ssh_private_key
+    }
+
+    inline = [
+      "touch ~/IMadeAFile.Right.Here",
+      "sudo iscsiadm -m node -o new -T ${oci_core_volume_attachment.test_block_attach[count.index].iqn} -p ${oci_core_volume_attachment.test_block_attach[count.index].ipv4}:${oci_core_volume_attachment.test_block_attach[count.index].port}",
+      "sudo iscsiadm -m node -o update -T ${oci_core_volume_attachment.test_block_attach[count.index].iqn} -n node.startup -v automatic",
+      "sudo iscsiadm -m node -T ${oci_core_volume_attachment.test_block_attach[count.index].iqn} -p ${oci_core_volume_attachment.test_block_attach[count.index].ipv4}:${oci_core_volume_attachment.test_block_attach[count.index].port} -o update -n node.session.auth.authmethod -v CHAP",
+      "sudo iscsiadm -m node -T ${oci_core_volume_attachment.test_block_attach[count.index].iqn} -p ${oci_core_volume_attachment.test_block_attach[count.index].ipv4}:${oci_core_volume_attachment.test_block_attach[count.index].port} -o update -n node.session.auth.username -v ${oci_core_volume_attachment.test_block_attach[count.index].chap_username}",
+      "sudo iscsiadm -m node -T ${oci_core_volume_attachment.test_block_attach[count.index].iqn} -p ${oci_core_volume_attachment.test_block_attach[count.index].ipv4}:${oci_core_volume_attachment.test_block_attach[count.index].port} -o update -n node.session.auth.password -v ${oci_core_volume_attachment.test_block_attach[count.index].chap_secret}",
+      "sudo iscsiadm -m node -T ${oci_core_volume_attachment.test_block_attach[count.index].iqn} -p ${oci_core_volume_attachment.test_block_attach[count.index].ipv4}:${oci_core_volume_attachment.test_block_attach[count.index].port} -l",
+    ]
+  }
+}
+
+/*
+# Gets the boot volume attachments for each instance
+data "oci_core_boot_volume_attachments" "test_boot_volume_attachments" {
+  depends_on          = [oci_core_instance.test_instance]
+  count               = var.num_instances
+  availability_domain = oci_core_instance.test_instance[count.index].availability_domain
+  compartment_id      = var.compartment_ocid
+  instance_id = oci_core_instance.test_instance[count.index].id
+}
+*/
+
+data "oci_core_instance_devices" "test_instance_devices" {
+  count       = var.num_instances
+  instance_id = oci_core_instance.test_instance[count.index].id
+}
+
+data "oci_core_volume_backup_policies" "test_predefined_volume_backup_policies" {
+  filter {
+    name = "display_name"
+
+    values = [
+      "silver",
+    ]
+  }
+}
+
+# Output the private and public IPs of the instance
+
+output "instance_private_ips" {
+  value = [oci_core_instance.test_instance.*.private_ip]
+}
+
+output "instance_public_ips" {
+  value = [oci_core_instance.test_instance.*.public_ip]
+}
+
+# Output the boot volume IDs of the instance
+output "boot_volume_ids" {
+  value = [oci_core_instance.test_instance.*.boot_volume_id]
+}
+
+# Output all the devices for all instances
+output "instance_devices" {
+  value = [data.oci_core_instance_devices.test_instance_devices.*.devices]
+}
+
+# Output the chap secret information for ISCSI volume attachments. This can be used to output
+# CHAP information for ISCSI volume attachments that have "use_chap" set to true.
+#output "IscsiVolumeAttachmentChapUsernames" {
+#  value = [oci_core_volume_attachment.test_block_attach.*.chap_username]
+#}
+#
+#output "IscsiVolumeAttachmentChapSecrets" {
+#  value = [oci_core_volume_attachment.test_block_attach.*.chap_secret]
+#}
+
+output "silver_policy_id" {
+  value = data.oci_core_volume_backup_policies.test_predefined_volume_backup_policies.volume_backup_policies[0].id
+}
+
+/*
+output "attachment_instance_id" {
+  value = data.oci_core_boot_volume_attachments.test_boot_volume_attachments.*.instance_id
+}
+*/
+
+resource "oci_core_vcn" "test_vcn" {
+  cidr_block     = "10.1.0.0/16"
+  compartment_id = var.compartment_ocid
+  display_name   = "TestVcn"
+  dns_label      = "testvcn"
+}
+
+resource "oci_core_internet_gateway" "test_internet_gateway" {
+  compartment_id = var.compartment_ocid
+  display_name   = "TestInternetGateway"
+  vcn_id         = oci_core_vcn.test_vcn.id
+}
+
+resource "oci_core_default_route_table" "default_route_table" {
+  manage_default_resource_id = oci_core_vcn.test_vcn.default_route_table_id
+  display_name               = "DefaultRouteTable"
+
+  route_rules {
+    destination       = "0.0.0.0/0"
+    destination_type  = "CIDR_BLOCK"
+    network_entity_id = oci_core_internet_gateway.test_internet_gateway.id
+  }
+}
+
+resource "oci_core_subnet" "test_subnet" {
+  availability_domain = data.oci_identity_availability_domain.ad.name
+  cidr_block          = "10.1.20.0/24"
+  display_name        = "TestSubnet"
+  dns_label           = "testsubnet"
+  security_list_ids   = [oci_core_vcn.test_vcn.default_security_list_id]
+  compartment_id      = var.compartment_ocid
+  vcn_id              = oci_core_vcn.test_vcn.id
+  route_table_id      = oci_core_vcn.test_vcn.default_route_table_id
+  dhcp_options_id     = oci_core_vcn.test_vcn.default_dhcp_options_id
+}
+
+data "oci_identity_availability_domain" "ad" {
+  compartment_id = var.tenancy_ocid
+  ad_number      = 1
+}
